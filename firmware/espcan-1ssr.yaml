@@ -1,0 +1,162 @@
+# ESPCAN 1SSR Testowy
+substitutions:
+  device_name: "node-40-espcan-1ssr"
+  device_friendly_name: "NODE-40 ESPCAN 1SSR"
+  canopen_node_id: 40
+
+# Mapowanie do TPDO
+canopen:
+  entities:
+    - id: in1
+      index: 1
+      tpdo: 0
+    - id: in2
+      index: 2
+      tpdo: 0
+    - id: in3
+      index: 3
+      tpdo: 0
+    - id: in4
+      index: 4
+      tpdo: 0
+    - id: relay_1
+      index: 5
+      tpdo: 1
+    - id: ssr_temperature
+      index: 6
+      tpdo: 1
+
+
+external_components:
+  - source: 
+      type: git
+      url: https://github.com/mrk-its/esphome-canopen
+      ref: main
+    refresh: 10s
+  - source: 
+      type: git
+      url: https://github.com/calebns/esphome_custom_components
+      ref: main
+    refresh: 10s
+
+esp32:
+  variant: esp32c3
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    version: recommended
+    sdkconfig_options:
+      CONFIG_FREERTOS_UNICORE: y
+      CONFIG_FREERTOS_HZ: '1000'
+      CONFIG_PM_USE_RTC_TIMER_REF: y
+      CONFIG_XTAL_FREQ_40: y
+      CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ: '80000000'
+      CONFIG_PM_DFS_INIT_AUTO: n
+      CONFIG_FREERTOS_USE_TICKLESS_IDLE: y
+      CONFIG_PM_ENABLE: y
+      CONFIG_PM_SLP_IRAM_OPT: y
+      CONFIG_PM_RTOS_IDLE_OPT: y
+      CONFIG_ESP_WIFI_SLP_IRAM_OPT: y
+      CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP: y
+      CONFIG_PM_PROFILING: y
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${device_friendly_name}
+
+debug:
+  update_interval: 60s
+
+# Enable logging
+logger:
+  level: none
+  
+ota:
+  - platform: canopen
+
+canbus:
+  - platform: esp32_can
+    id: can_bus
+    tx_pin: GPIO7
+    rx_pin: GPIO6
+    can_id: 0
+    bit_rate: 125kbps
+    rx_queue_len: 2048
+
+canopen:
+  id: can_gate
+  canbus_id: can_bus
+  node_id: ${canopen_node_id}
+  sdo_block_transfer_size: 63
+
+binary_sensor:
+  - platform: gpio
+    name: "IN1"
+    id: in1
+    pin:
+      number: GPIO5
+      mode:
+        input: true
+        pulldown: true
+    internal: true
+  - platform: gpio
+    name: "IN2"
+    id: in2
+    pin:
+      number: GPIO4
+      mode:
+        input: true
+        pulldown: true
+    internal: true
+  - platform: gpio
+    name: "IN3"
+    id: in3
+    pin:
+      number: GPIO1
+      mode:
+        input: true
+        pulldown: true
+    internal: true
+  - platform: gpio
+    name: "IN4"
+    id: in4
+    pin:
+      number: GPIO0
+      mode:
+        input: true
+        pulldown: true
+    internal: true
+
+sensor:
+  - platform: adc
+    pin: GPIO3
+    id: ntc_voltage_raw
+    attenuation: 12db
+    update_interval: 10s
+
+  - platform: resistance
+    id: ntc_resistance
+    sensor: ntc_voltage_raw
+    configuration: DOWNSTREAM
+    resistor: 10kOhm
+    reference_voltage: "3.3V"
+    internal: true
+
+  - platform: ntc
+    sensor: ntc_resistance
+    id: ssr_temperature
+    calibration:
+      b_constant: 3380
+      reference_temperature: 25°C
+      reference_resistance: 10kOhm
+    name: "SSR Temperatura"
+    internal: true
+    
+switch:
+  - platform: gpio
+    pin: GPIO2
+    name: "Włącznik 1"
+    id: relay_1
+    internal: true
+
+
